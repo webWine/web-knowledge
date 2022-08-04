@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>page1</title>
+</head>
+
+<iframe src="//127.0.0.1:1002/src/page2.html" frameborder="0" style="display: none;" id="iframe"></iframe>
+<script>
+  iframe.onload = function () {
+    iframe.contentWindow.postMessage("hello", "*");
+  }
+  window.onmessage = function (ev) {
+    console.log(ev.data);
+  }
+</script>
+
+</body>
+
+</html>

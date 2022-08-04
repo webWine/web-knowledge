@@ -1,0 +1,1 @@
+新建webpack实例时，使用npx webpack...时会报错，这是由于webpack-cli-4.1以上的版本会与webpack5.0冲突

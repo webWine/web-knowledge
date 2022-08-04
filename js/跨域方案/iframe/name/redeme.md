@@ -1,0 +1,5 @@
+# 策略
+需要三个页面配合,其中两个需要同源,一个为非同源
+# 原理
+1、在A页面中使用iframe方式打开B窗口,此时将会得到B中的name值,但若是直接读取iframe.contentWindow.name读取又会造成跨域
+2、由于直接读取iframe.contentWindow.name会造成跨域,所以我们需要在A中修正iframe的引用位置为A同源(即第三个页面proxy)即可访问iframe.contentWindow.name,由于A与proxy与君威改变name值,所以此时A中可以读取到B中name的值.

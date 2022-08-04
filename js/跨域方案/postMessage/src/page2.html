@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>page2</title>
+</head>
+<script>
+  //监听postmessage发送的信息
+  window.onmessage = function (ev) {
+    console.log(ev.data);
+    ev.source.postMessage(ev.data + "你好啊", ev.origin)
+  }
+</script>
+
+<body>
+
+</body>
+
+</html>
