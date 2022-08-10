@@ -1,3 +1,4 @@
+import {getType} from "../../../share/objectType";
 /**
  * 浅拷贝
  *   ——浅拷贝是指新创建一个对象，然后复制被拷贝对象的属性，对于引用类型的属性值，在拷贝时将会复制引用类型的指针
@@ -73,7 +74,7 @@ console.log(A);
         // 对象内也可能会有数组
         const temp = Object.prototype.toString.call(target) === "[object Array]" ? [] : {};
         if (map.get(target)) {
-            // 这里其实相当于返回了temp，并且由于temp是一个引用类型数据，所以数据将会共享，等待循环递归结束，map.get(target)会与temp保持一致
+            // 解决循环引用
             return map.get(target)
         }
         // 初始化执行的时候就已经将A放在了Map中，所以后面执行到环引用时target值就与A相等，因此map.get(target)将会返回true，结束遍历
@@ -130,20 +131,20 @@ C.key = C;
         if (typeof target !== "function") {
             temp = createObj(target);
         }
-        if (Object.prototype.toString.call(target) === "[object Map]") {
+        if (getType(target, "Map")) {
             target.forEach((value, key) => {
                 temp.set(key, deepClone_2(value, map))
             });
             return temp
         }
-        if (Object.prototype.toString.call(target) === "[object Set]") {
+        if (getType(target, "Set")) {
             target.forEach((value) => {
                 temp.add(deepClone_2(value, map))
             });
             return temp
         }
         if (map.get(target)) {
-            // 防止循环引用，当前的target就是上一次遍历得到的value，如果是循环引用，则循环的属性值会是相等的，所以在这里会被拦截
+            // 防止循环引用
             return map.get(target)
         }
         // 初始化执行的时候就已经将A放在了Map中，所以后面执行到环引用时target值就与A相等，因此map.get(target)将会返回true，结束遍历
@@ -175,11 +176,7 @@ C.key = C;
 // 不可遍历数据类型的深拷贝之function类型
 // 原理：正则解析function，将params与函数体提取出来
 (function (C) {
-    // 根据对象构造函数创建对应的对象
-    function createObj(target) {
-        const objConstructor = target.constructor;
-        return new objConstructor
-    }
+
     function deepClone_2(target, map = new Map()) {
         // 若target为对象，则创建新的对象
         if (typeof target != "object") {
@@ -199,7 +196,7 @@ C.key = C;
             return temp
         }
         if (map.get(target)) {
-            // 这里其实相当于返回了temp，并且由于temp是一个引用类型数据，所以数据将会共享，等待循环递归结束，map.get(target)会与temp保持一致
+            // 循环引用问题解决
             return map.get(target)
         }
         // 初始化执行的时候就已经将A放在了Map中，所以后面执行到环引用时target值就与A相等，因此map.get(target)将会返回true，结束遍历
@@ -209,13 +206,82 @@ C.key = C;
         }
         return temp
     }
+
     const D = deepClone_2(C);
     console.log("可遍历对象的深拷贝");
     console.log(D);
-    console.log(C == D); // false
-    console.log(C.mapObj == D.mapObj); //false
-    console.log(C.setObj == D.setObj);//false
-    console.log(C.parents == D.parents);//false
-    console.log(C.arr == D.arr);//false
+    console.log(C === D); // false
+    console.log(C.mapObj === D.mapObj); //false
+    console.log(C.setObj === D.setObj);//false
+    console.log(C.parents === D.parents);//false
+    console.log(C.arr === D.arr);//false
 })(C)
+/**
+ * @name createConstructor
+ * @desc 根据对象的类型创建创建一个类型相同的对象
+ * @tips 解决深拷贝动态创建Set、Map、数组等类型数据
+ */
+const createConstructor = target => {
+    const _Constructor = target.constructor;
+    return new _Constructor()
+}
+/**
+ * @name clone
+ * @desc 深拷贝数据方法
+ */
+const clone = (target, seenMap = new WeakMap()) => {
+    // 基本数据类型数据直返回
+    if (!getType(target, "Object")) return target;
+    // 解决循环引用问题
+    const hasObj = seenMap.get(target)
+    if (hasObj) return hasObj;
+    let copyObj = createConstructor(target);
+    // 此处仅处理Map和Set，数组和对象会走到最下面的循环中继续递归执行返回
+    if (getType(target, "Map")) {
+        target.forEach((value, key) => {
+            copyObj.set(key, clone(value, seenMap))
+        })
+        return copyObj;
+    }
+    if (getType(target, "Set")) {
+        target.forEach(value => {
+            copyObj.add(clone(value, seenMap))
+        })
+        return copyObj
+    }
+    seenMap.set(target, copyObj);
+    const keysArr = Object.keys(target);
+    keysArr.forEach(item => {
+        const currentValue = target[item]
+        if (getType(currentValue, "Object")) {
+            copyObj[item] = currentValue
+        } else if (getType(currentValue, "Function")) {
+            copyObj[item] = copyFunction(currentValue)
+        } else {
+            copyObj[item] = clone(currentValue, seenMap)
+        }
+    })
+    return copyObj;
+}
+
+/**
+ * @name 拷贝函数
+ * @param fn
+ */
+const copyFunction = fn => {
+    if (fn.prototype) {
+        const fnString = fn.toString();
+        const paramsReg = /(?<=\().+(?=\)\s{0,}{)/;
+        const bodyReg = /(?<=\)\s{0,}{)(.|\n)+(?=})/m;
+        const paramString = paramsReg.exec(fnString);
+        const body = bodyReg.exec(fnString);
+        if (!body[0]) return null;
+        if (!paramString) return new Function(body[0]);
+        const paramsArr = paramString.split(",");
+        return new Function(...paramsArr, body[0])
+    } else {
+        // 箭头函数
+        return eval(fn)
+    }
+}
 
